@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>🌱 SmartWaste Bengaluru</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      /* Light theme */
+      --bg:#f0f4f8;--surface:#ffffff;--card:#ffffff;
+      --border:#d0d7de;--border2:#e1e8ef;
+      --text:#1a1f2e;--muted:#586069;--subtle:#8b949e;
+      /* Accent */
+      --green:#1a7f37;--green-bg:#dafbe1;--green-border:#82cfaa;
+      --blue:#0969da;--blue-bg:#ddf4ff;--blue-border:#79c0ff;
+      --orange:#bc4c00;--orange-bg:#fff1e5;--orange-border:#ffb77c;
+      --red:#cf222e;--red-bg:#ffebe9;--red-border:#ffacab;
+      --purple:#8250df;--purple-bg:#fbefff;--purple-border:#d2a8ff;
+      --yellow:#9a6700;--yellow-bg:#fff8c5;--yellow-border:#e3b341;
+      --teal:#0e7490;
+      --radius:12px;--radius-sm:8px;--radius-xs:6px;
+      --shadow:0 1px 3px rgba(0,0,0,.12),0 1px 2px rgba(0,0,0,.08);
+      --shadow-md:0 4px 12px rgba(0,0,0,.12);
+    }
+    body{font-family:-apple-system,"Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:15px;line-height:1.5}
+    ::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+
+    /* ═══ NAV ═══ */
+    .nav{position:sticky;top:0;z-index:300;background:#fff;border-bottom:2px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 1rem;height:56px;box-shadow:var(--shadow)}
+    .nav-brand{display:flex;align-items:center;gap:8px;font-weight:800;font-size:1.05rem;color:var(--green);white-space:nowrap;text-decoration:none}
+    .nav-brand .city{font-size:.72rem;color:var(--muted);font-weight:400;background:var(--green-bg);padding:2px 7px;border-radius:20px;border:1px solid var(--green-border)}
+    .nav-tabs{display:flex;gap:2px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+    .nav-tab{padding:5px 12px;border-radius:20px;cursor:pointer;font-size:.8rem;font-weight:500;color:var(--muted);border:none;background:transparent;transition:all .18s;white-space:nowrap;display:flex;align-items:center;gap:4px}
+    .nav-tab:hover{background:var(--bg);color:var(--text)}
+    .nav-tab.active{background:var(--green);color:#fff;font-weight:700}
+    .nav-right{display:flex;align-items:center;gap:6px;flex-shrink:0}
+    .live-dot{width:8px;height:8px;border-radius:50%;background:var(--green);animation:blink 1.4s infinite;flex-shrink:0}
+    @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+    .live-label{font-size:.7rem;color:var(--muted)}
+    .abadge{background:var(--red);color:#fff;padding:1px 7px;border-radius:20px;font-size:.68rem;font-weight:700}
+
+    /* ═══ LAYOUT ═══ */
+    .container{max-width:1240px;margin:0 auto;padding:1.5rem 1.25rem 5rem}
+    .page{display:none;animation:fadeIn .2s ease}
+    .page.active{display:block}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+
+    /* ═══ GRIDS ═══ */
+    .g4{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:1rem;margin-bottom:1.5rem}
+    .g2{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:1.25rem}
+    .g3{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1rem}
+    .bins-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:1rem}
+
+    /* ═══ CARDS ═══ */
+    .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem;box-shadow:var(--shadow)}
+    .card-title{font-size:.7rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:.6rem;font-weight:700}
+    .sh{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem}
+    .sh-title{font-size:1.05rem;font-weight:700;display:flex;align-items:center;gap:8px}
+
+    /* ═══ STAT CARDS ═══ */
+    .stat-card{border-top:3px solid var(--green);display:flex;flex-direction:column;gap:4px;transition:transform .15s,box-shadow .15s}
+    .stat-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-md)}
+    .stat-card.blue{border-top-color:var(--blue)}.stat-card.orange{border-top-color:var(--orange)}
+    .stat-card.red{border-top-color:var(--red)}.stat-card.purple{border-top-color:var(--purple)}
+    .stat-card.yellow{border-top-color:var(--yellow)}.stat-card.teal{border-top-color:var(--teal)}
+    .s-icon{font-size:1.5rem;margin-bottom:2px}.s-val{font-size:2rem;font-weight:800;line-height:1;color:var(--text)}
+    .s-label{font-size:.74rem;color:var(--muted);font-weight:500}
+    .s-delta{font-size:.68rem;color:var(--green);margin-top:1px}
+
+    /* ═══ PROGRESS BAR ═══ */
+    .pbar-wrap{background:var(--bg);border-radius:20px;height:9px;overflow:hidden;border:1px solid var(--border)}
+    .pbar{height:100%;border-radius:20px;transition:width .7s ease}
+    .pbar.low{background:#1a7f37}.pbar.mid{background:#9a6700}
+    .pbar.high{background:#bc4c00}.pbar.full{background:#cf222e}
+
+    /* ═══ BIN CARDS ═══ */
+    .bin-card{background:#fff;border:2px solid var(--border);border-radius:var(--radius);padding:1rem;cursor:pointer;transition:all .2s;box-shadow:var(--shadow)}
+    .bin-card:hover{border-color:var(--green);box-shadow:var(--shadow-md);transform:translateY(-2px)}
+    .bin-card.alert-bin{border-color:var(--red);background:var(--red-bg)}
+    .bin-id{font-size:.65rem;color:var(--subtle);font-family:monospace;background:var(--bg);padding:1px 5px;border-radius:4px;display:inline-block}
+    .bin-loc{font-size:.88rem;font-weight:600;margin:4px 0 6px;line-height:1.3}
+    .bin-type{display:inline-flex;align-items:center;gap:4px;font-size:.7rem;padding:3px 9px;border-radius:20px;font-weight:700;margin-bottom:9px;text-transform:uppercase}
+    .bin-action{margin-top:9px;width:100%;padding:7px;border:2px solid var(--border);border-radius:var(--radius-sm);background:#fff;color:var(--muted);font-size:.82rem;cursor:pointer;transition:all .2s;font-weight:600}
+    .bin-action:hover{background:var(--green);color:#fff;border-color:var(--green)}
+
+    /* ═══ WASTE TYPE STYLES ═══ */
+    .wt-recyclable{background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-border)}
+    .wt-organic{background:var(--green-bg);color:var(--green);border:1px solid var(--green-border)}
+    .wt-hazardous{background:var(--red-bg);color:var(--red);border:1px solid var(--red-border)}
+    .wt-medical{background:var(--purple-bg);color:var(--purple);border:1px solid var(--purple-border)}
+    .wt-general{background:var(--bg);color:var(--muted);border:1px solid var(--border)}
+
+    /* ═══ BIG WASTE BUTTONS (Dispose page) ═══ */
+    .waste-btn-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:.75rem;margin-bottom:1.25rem}
+    .waste-btn{display:flex;flex-direction:column;align-items:center;gap:6px;padding:1rem .75rem;border-radius:var(--radius);border:2px solid var(--border);background:#fff;cursor:pointer;transition:all .2s;box-shadow:var(--shadow);text-align:center}
+    .waste-btn:hover{box-shadow:var(--shadow-md);transform:translateY(-2px)}
+    .waste-btn.selected{border-width:3px}
+    .waste-btn .wb-icon{font-size:2.2rem;line-height:1}
+    .waste-btn .wb-name{font-size:.82rem;font-weight:700;line-height:1.2}
+    .waste-btn .wb-hint{font-size:.68rem;color:var(--muted);line-height:1.3}
+    .waste-btn .wb-pts{font-size:.7rem;font-weight:700;padding:2px 8px;border-radius:20px;margin-top:2px}
+    .waste-btn-rec{border-color:var(--blue-border);background:var(--blue-bg)}.waste-btn-rec .wb-name{color:var(--blue)}
+    .waste-btn-org{border-color:var(--green-border);background:var(--green-bg)}.waste-btn-org .wb-name{color:var(--green)}
+    .waste-btn-haz{border-color:var(--red-border);background:var(--red-bg)}.waste-btn-haz .wb-name{color:var(--red)}
+    .waste-btn-med{border-color:var(--purple-border);background:var(--purple-bg)}.waste-btn-med .wb-name{color:var(--purple)}
+    .waste-btn-gen{border-color:var(--border);background:var(--bg)}.waste-btn-gen .wb-name{color:var(--muted)}
+
+    /* ═══ FORMS ═══ */
+    .form-group{margin-bottom:1.1rem}
+    label{display:block;font-size:.8rem;color:var(--text);margin-bottom:5px;font-weight:600}
+    label .hint{font-size:.72rem;color:var(--muted);font-weight:400;margin-left:4px}
+    input,select,textarea{width:100%;padding:9px 12px;border-radius:var(--radius-sm);border:2px solid var(--border);background:#fff;color:var(--text);font-size:.9rem;outline:none;transition:border .2s,box-shadow .2s;font-family:inherit}
+    input:focus,select:focus,textarea:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(26,127,55,.12)}
+    textarea{resize:vertical;min-height:70px}
+    select option{background:#fff}
+    .btn{padding:9px 20px;border:none;border-radius:var(--radius-sm);cursor:pointer;font-size:.88rem;font-weight:700;transition:all .2s;font-family:inherit}
+    .btn-primary{background:var(--green);color:#fff;width:100%;padding:12px;font-size:1rem;border-radius:var(--radius);box-shadow:0 2px 8px rgba(26,127,55,.3)}
+    .btn-primary:hover{background:#116329;box-shadow:0 4px 12px rgba(26,127,55,.4)}
+    .btn-primary:disabled{background:var(--border);color:var(--muted);cursor:not-allowed;box-shadow:none}
+    .btn-ghost{background:#fff;border:2px solid var(--border);color:var(--muted)}
+    .btn-ghost:hover{border-color:var(--blue);color:var(--blue)}
+    .btn-danger{background:#fff;border:2px solid var(--red-border);color:var(--red)}
+    .btn-danger:hover{background:var(--red);color:#fff}
+
+    /* ═══ CHIPS ═══ */
+    .chip-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:.9rem}
+    .chip{padding:4px 12px;border-radius:20px;border:2px solid var(--border);background:#fff;color:var(--muted);font-size:.75rem;font-weight:500;cursor:pointer;transition:all .18s}
+    .chip:hover{border-color:var(--green);color:var(--green);background:var(--green-bg)}
+
+    /* ═══ RESULT BOX ═══ */
+    .result-box{border-radius:var(--radius);padding:1.25rem;border:2px solid var(--green);background:var(--green-bg);margin-top:1.25rem;display:none}
+    .result-box.err{border-color:var(--red);background:var(--red-bg)}
+    .result-box.warn{border-color:var(--orange);background:var(--orange-bg)}
+    .result-row{display:flex;justify-content:space-between;align-items:flex-start;padding:6px 0;border-bottom:1px solid rgba(0,0,0,.07);font-size:.85rem}
+    .result-row:last-child{border-bottom:none}
+    .rl{color:var(--muted);flex-shrink:0;font-weight:500}.rr{text-align:right;max-width:60%}
+    .pts-flash{font-size:2.5rem;font-weight:800;color:var(--yellow);text-align:center;padding:.4rem 0;text-shadow:0 2px 4px rgba(0,0,0,.1)}
+
+    /* ═══ TAGS ═══ */
+    .tag{display:inline-flex;align-items:center;gap:3px;padding:2px 9px;border-radius:20px;font-size:.72rem;font-weight:700}
+
+    /* ═══ LEADERBOARD ═══ */
+    .lb-row{display:grid;grid-template-columns:38px 1fr auto;align-items:center;gap:12px;padding:10px 12px;border-radius:var(--radius-sm);transition:background .15s;border-bottom:1px solid var(--border2)}
+    .lb-row:last-child{border-bottom:none}
+    .lb-row:hover{background:var(--bg)}
+    .lb-rank{font-size:1.1rem;font-weight:800;text-align:center}
+    .lb-name{font-weight:700;font-size:.9rem}.lb-sub{font-size:.72rem;color:var(--muted)}
+    .lb-pts{font-size:1rem;font-weight:800;color:var(--yellow)}
+    .badge-pill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:.67rem;font-weight:700;background:var(--purple-bg);color:var(--purple);border:1px solid var(--purple-border);margin:1px}
+
+    /* ═══ ALERTS ═══ */
+    .alert-row{display:flex;gap:12px;align-items:flex-start;padding:10px 12px;border-radius:var(--radius-sm);background:#fff;border:1px solid var(--border);margin-bottom:8px;box-shadow:var(--shadow)}
+    .alert-row.pending{border-left:4px solid var(--red)}
+    .alert-row.resolved{border-left:4px solid var(--green);opacity:.65}
+    .a-title{font-size:.87rem;font-weight:700}.a-meta{font-size:.72rem;color:var(--muted);margin-top:2px}
+
+    /* ═══ MAP ═══ */
+    #binMap{height:420px;border-radius:var(--radius);border:2px solid var(--border);overflow:hidden;margin-bottom:1rem;box-shadow:var(--shadow)}
+    .map-legend{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:1rem;padding:.75rem;background:#fff;border-radius:var(--radius-sm);border:1px solid var(--border)}
+    .map-legend-item{display:flex;align-items:center;gap:5px;font-size:.74rem;color:var(--muted);font-weight:500}
+    .map-legend-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+    .leaflet-popup-content-wrapper{background:#fff;border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow-md);color:var(--text)}
+    .leaflet-popup-tip{background:#fff}
+    .leaflet-popup-content{margin:12px 14px;font-family:-apple-system,"Segoe UI",system-ui,sans-serif}
+    .popup-id{font-size:.63rem;color:var(--subtle);font-family:monospace;background:var(--bg);padding:1px 5px;border-radius:4px}
+    .popup-loc{font-weight:700;font-size:.92rem;margin:3px 0}
+    .popup-type{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:.68rem;font-weight:700;text-transform:uppercase;margin-bottom:7px}
+    .popup-fill-wrap{background:var(--bg);border-radius:20px;height:8px;overflow:hidden;margin:5px 0 3px;border:1px solid var(--border)}
+    .popup-fill-bar{height:100%;border-radius:20px}
+    .popup-meta{font-size:.7rem;color:var(--muted);margin-top:3px}
+    .popup-btn{display:block;width:100%;margin-top:9px;padding:7px;background:var(--green);color:#fff;border:none;border-radius:7px;font-size:.8rem;font-weight:700;cursor:pointer}
+    .popup-btn:hover{background:#116329}
+
+    /* ═══ SOCIETY / COMPETITION ═══ */
+    .area-row{display:grid;grid-template-columns:32px 1fr auto;align-items:center;gap:10px;padding:11px 12px;border-radius:var(--radius-sm);background:#fff;margin-bottom:8px;border:2px solid var(--border);box-shadow:var(--shadow)}
+    .area-row:nth-child(1){border-color:#d4af37;background:#fffdf0}
+    .area-row:nth-child(2){border-color:#a0a0a0;background:#f8f9fa}
+    .area-row:nth-child(3){border-color:#cd7f32;background:#fffaf0}
+    .area-rank{font-size:1.2rem;font-weight:800;text-align:center}
+    .health-bar{display:flex;gap:5px;margin-top:4px;align-items:center}
+    .health-bar-bg{flex:1;background:var(--bg);border-radius:20px;height:5px;overflow:hidden;border:1px solid var(--border)}
+    .health-bar-fill{height:100%;border-radius:20px}
+    .emer-card{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:1rem;border-left:4px solid var(--red);box-shadow:var(--shadow);margin-bottom:.75rem}
+    .emer-card.resolved{border-left-color:var(--green);opacity:.7}
+    .emer-urg{display:inline-block;padding:2px 9px;border-radius:20px;font-size:.7rem;font-weight:700}
+
+    /* ═══ MEDICAL WARNING BOX ═══ */
+    .medical-warning{background:var(--purple-bg);border:2px solid var(--purple-border);border-radius:var(--radius);padding:1rem;margin-bottom:1.25rem}
+    .medical-warning-title{font-size:.9rem;font-weight:800;color:var(--purple);margin-bottom:.4rem;display:flex;align-items:center;gap:6px}
+    .medical-warning p{font-size:.82rem;color:var(--text);line-height:1.6}
+    .helpline-btn{display:inline-flex;align-items:center;gap:5px;background:var(--purple);color:#fff;padding:5px 14px;border-radius:20px;font-size:.8rem;font-weight:700;text-decoration:none;margin-top:.6rem}
+
+    /* ═══ PRE-SORT TOGGLE ═══ */
+    .presort-toggle{display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:var(--radius-sm);background:var(--green-bg);border:2px solid var(--green-border);cursor:pointer;margin-bottom:1.1rem;transition:border .2s}
+    .presort-toggle:hover{border-color:var(--green)}
+    .presort-toggle input[type=checkbox]{width:18px;height:18px;accent-color:var(--green);cursor:pointer;flex-shrink:0}
+    .presort-bonus-badge{background:var(--green);color:#fff;padding:3px 10px;border-radius:20px;font-size:.72rem;font-weight:700;margin-left:auto;white-space:nowrap}
+
+    /* ═══ CHATBOT ═══ */
+    #chatWidget{position:fixed;bottom:24px;right:24px;z-index:1000}
+    #chatToggle{width:56px;height:56px;border-radius:50%;background:var(--green);border:none;cursor:pointer;font-size:1.5rem;box-shadow:0 4px 16px rgba(26,127,55,.45);transition:transform .2s,box-shadow .2s;display:flex;align-items:center;justify-content:center}
+    #chatToggle:hover{transform:scale(1.08);box-shadow:0 6px 24px rgba(26,127,55,.55)}
+    #chatNotif{position:absolute;top:-4px;right:-4px;width:20px;height:20px;background:var(--red);border-radius:50%;font-size:.68rem;color:#fff;font-weight:700;display:none;align-items:center;justify-content:center;border:2px solid #fff}
+    #chatBox{position:absolute;bottom:66px;right:0;width:360px;background:#fff;border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow-md);display:none;flex-direction:column;overflow:hidden;max-height:530px}
+    #chatBox.open{display:flex;animation:slideUp .22s ease}
+    @keyframes slideUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+    .chat-header{background:linear-gradient(135deg,var(--green) 0%,#116329 100%);padding:12px 16px;display:flex;align-items:center;gap:10px;color:#fff}
+    .chat-avatar{width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.25);display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0}
+    .chat-header-info .cname{font-weight:800;font-size:.9rem}
+    .chat-header-info .cstatus{font-size:.7rem;opacity:.85}
+    .chat-close{margin-left:auto;background:transparent;border:none;color:rgba(255,255,255,.8);cursor:pointer;font-size:1rem;padding:3px 7px;border-radius:4px}
+    .chat-close:hover{background:rgba(255,255,255,.2);color:#fff}
+    .chat-messages{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px;min-height:270px;background:var(--bg)}
+    .chat-bubble{max-width:88%;padding:9px 12px;border-radius:14px;font-size:.83rem;line-height:1.6;word-break:break-word;box-shadow:var(--shadow)}
+    .chat-bubble.bot{background:#fff;border:1px solid var(--border);border-bottom-left-radius:4px;align-self:flex-start;color:var(--text)}
+    .chat-bubble.user{background:var(--green);color:#fff;border-bottom-right-radius:4px;align-self:flex-end;font-weight:500;border:none}
+    .chat-bubble.typing{opacity:.6}
+    .chat-footer{padding:10px 12px;border-top:2px solid var(--border);display:flex;gap:8px;background:#fff}
+    .chat-input{flex:1;padding:8px 13px;border-radius:20px;border:2px solid var(--border);background:#fff;color:var(--text);font-size:.85rem;outline:none}
+    .chat-input:focus{border-color:var(--green)}
+    .chat-send{width:38px;height:38px;border-radius:50%;background:var(--green);border:none;color:#fff;cursor:pointer;font-size:.95rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 2px 6px rgba(26,127,55,.3)}
+    .chat-suggs{padding:0 12px 10px;display:flex;flex-wrap:wrap;gap:5px;background:#fff}
+    .chat-sugg{padding:4px 11px;border-radius:20px;border:2px solid var(--border);background:#fff;color:var(--muted);font-size:.72rem;font-weight:500;cursor:pointer;transition:all .18s}
+    .chat-sugg:hover{border-color:var(--green);color:var(--green);background:var(--green-bg)}
+
+    /* ═══ MISC ═══ */
+    .sep{border:none;border-top:1px solid var(--border);margin:1rem 0}
+    .empty{text-align:center;color:var(--muted);padding:2rem;font-size:.88rem}
+    .info-pill{display:inline-flex;align-items:center;gap:5px;padding:4px 11px;border-radius:20px;font-size:.73rem;background:#fff;border:1px solid var(--border);color:var(--muted)}
+    .refresh-btn{background:#fff;border:2px solid var(--border);color:var(--muted);border-radius:var(--radius-sm);padding:5px 12px;font-size:.78rem;cursor:pointer;font-weight:600}
+    .refresh-btn:hover{border-color:var(--blue);color:var(--blue)}
+    .footer{text-align:center;padding:1.5rem;color:var(--muted);font-size:.72rem;border-top:2px solid var(--border);margin-top:2rem}
+    .dispose-wrap{display:grid;grid-template-columns:1fr 390px;gap:1.5rem}
+
+    /* ═══ FLOW ═══ */
+    .flow-steps{display:flex;align-items:stretch;flex-wrap:wrap;gap:0;justify-content:center}
+    .flow-step{text-align:center;padding:.9rem .75rem;background:#fff;border:2px solid var(--border);border-radius:var(--radius-sm);min-width:100px;flex:1;max-width:140px;box-shadow:var(--shadow)}
+    .flow-arrow{display:flex;align-items:center;color:var(--green);font-size:1.1rem;padding:0 2px}
+    .flow-icon{font-size:1.8rem;margin-bottom:5px}
+    .flow-label{font-size:.7rem;color:var(--muted);line-height:1.4;font-weight:500}
+
+    /* RESPONSIVE */
+    @media(max-width:900px){.dispose-wrap{grid-template-columns:1fr}}
+    @media(max-width:680px){.g4{grid-template-columns:1fr 1fr}.g2{grid-template-columns:1fr}.nav-tab{padding:4px 8px;font-size:.74rem}.waste-btn-grid{grid-template-columns:repeat(3,1fr)}#chatBox{width:300px}}
+    @media(max-width:420px){.waste-btn-grid{grid-template-columns:1fr 1fr}}
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="nav">
+  <div class="nav-brand">🌱 SmartWaste <span class="city">Bengaluru</span></div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="goTo('dashboard',this)">📊 Dashboard</button>
+    <button class="nav-tab" onclick="goTo('bins',this)">🗑️ Bins</button>
+    <button class="nav-tab" onclick="goTo('dispose',this)">♻️ Dispose</button>
+    <button class="nav-tab" onclick="goTo('societies',this)">🏘️ Societies</button>
+    <button class="nav-tab" onclick="goTo('competition',this)">🏆 Competition</button>
+    <button class="nav-tab" onclick="goTo('leaderboard',this)">⭐ Leaders</button>
+    <button class="nav-tab" onclick="goTo('alerts',this)">🚨 Alerts <span class="abadge" id="alertCount">0</span></button>
+    <button class="nav-tab" onclick="goTo('howit',this)">💡 Guide</button>
+  </div>
+  <div class="nav-right"><div class="live-dot"></div><div class="live-label">Live</div></div>
+</nav>
+
+<!-- ══════════ DASHBOARD ══════════ -->
+<div id="page-dashboard" class="page active">
+  <div class="container">
+    <div class="g4">
+      <div class="card stat-card"><div class="s-icon">♻️</div><div class="s-val" id="s-total">—</div><div class="s-label">Total Disposals</div></div>
+      <div class="card stat-card blue"><div class="s-icon">🌿</div><div class="s-val" id="s-co2">—</div><div class="s-label">CO₂ Saved (kg)</div><div class="s-delta" id="s-co2-hint"></div></div>
+      <div class="card stat-card"><div class="s-icon">🔵 Recycle</div><div class="s-val" id="s-rec">—</div><div class="s-label">Recyclable (kg)</div></div>
+      <div class="card stat-card" style="border-top-color:var(--green)"><div class="s-icon">🟢 Food</div><div class="s-val" id="s-org">—</div><div class="s-label">Organic (kg)</div></div>
+      <div class="card stat-card red"><div class="s-icon">🔴 Danger</div><div class="s-val" id="s-haz">—</div><div class="s-label">Hazardous (kg)</div></div>
+      <div class="card stat-card purple"><div class="s-icon">🟣 Medical</div><div class="s-val" id="s-med">—</div><div class="s-label">Medical (kg)</div></div>
+      <div class="card stat-card orange"><div class="s-icon">🚨</div><div class="s-val" id="s-full">—</div><div class="s-label">Full Bins</div></div>
+      <div class="card stat-card red"><div class="s-icon">🆘</div><div class="s-val" id="s-emer">—</div><div class="s-label">Emergencies</div></div>
+    </div>
+    <div class="g2">
+      <div class="card">
+        <div class="card-title">📊 Waste Type Breakdown (Real-Time)</div>
+        <div id="wasteChart" style="margin-top:.4rem"></div>
+        <hr class="sep">
+        <div class="card-title">🌍 CO₂ Savings Goal — Bengaluru</div>
+        <div id="co2Bar" style="margin-top:.4rem"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">📋 Recent Disposals</div>
+        <div id="recentDisposals"><div class="empty">No disposals yet — be first! 🌱</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ BINS ══════════ -->
+<div id="page-bins" class="page">
+  <div class="container">
+    <div class="sh">
+      <div class="sh-title">🗑️ Smart Bins — Bengaluru Map</div>
+      <div style="display:flex;gap:7px;align-items:center">
+        <span class="info-pill">🔄 Auto-refresh 5s</span>
+        <button class="refresh-btn" onclick="loadBins()">↺ Now</button>
+      </div>
+    </div>
+    <div id="binMap"></div>
+    <div class="map-legend">
+      <span class="map-legend-item"><span class="map-legend-dot" style="background:#1a7f37"></span>0–49% OK</span>
+      <span class="map-legend-item"><span class="map-legend-dot" style="background:#9a6700"></span>50–74% Half Full</span>
+      <span class="map-legend-item"><span class="map-legend-dot" style="background:#bc4c00"></span>75–89% Almost Full</span>
+      <span class="map-legend-item"><span class="map-legend-dot" style="background:#cf222e"></span>≥90% FULL — Truck Coming</span>
+      <span class="map-legend-item"><span class="map-legend-dot" style="background:#8250df"></span>🟣 Medical Bin</span>
+      <span class="map-legend-item" style="margin-left:auto;font-size:.7rem">📍 Tap a pin or card for details</span>
+    </div>
+    <div class="card-title" style="margin-bottom:.75rem">📋 All Bins</div>
+    <div class="bins-grid" id="binGrid"><div class="empty">Loading bins…</div></div>
+  </div>
+</div>
+
+<!-- ══════════ DISPOSE ══════════ -->
+<div id="page-dispose" class="page">
+  <div class="container">
+
+    <!-- Medical Warning Banner -->
+    <div class="medical-warning">
+      <div class="medical-warning-title">🟣 Medical Waste — Special Handling Required!</div>
+      <p>Syringes, needles, used bandages, expired medicines, blood-stained items, IV tubes, surgical gloves → <strong>NEVER mix with regular waste</strong>. Use the <strong>Purple bin (BIN-009 or BIN-010)</strong>. Earns you <strong>+30 points</strong> — the highest reward!</p>
+      <a href="tel:18004250210" class="helpline-btn">📞 BBMP Bio-Medical Helpline: 1800-425-0210</a>
+    </div>
+
+    <div class="dispose-wrap">
+      <div>
+        <div class="card">
+          <div class="card-title">📱 Dispose Waste — Step by Step</div>
+
+          <!-- Step 1: Citizen -->
+          <div style="margin-bottom:1.1rem">
+            <div style="font-size:.88rem;font-weight:700;margin-bottom:.5rem;display:flex;align-items:center;gap:6px"><span style="background:var(--green);color:#fff;width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:800;flex-shrink:0">1</span> Who are you? <span style="font-size:.74rem;color:var(--muted);font-weight:400">Tap your name or enter QR code</span></div>
+            <div class="chip-row" id="citizenChips"></div>
+            <div class="form-group" style="margin-bottom:0">
+              <input id="f-qr" placeholder="Or type your QR code… e.g. QR-PRIYA-001" autocomplete="off"/>
+            </div>
+          </div>
+
+          <!-- Step 2: Waste type (big buttons) -->
+          <div style="margin-bottom:1.1rem">
+            <div style="font-size:.88rem;font-weight:700;margin-bottom:.5rem;display:flex;align-items:center;gap:6px"><span style="background:var(--green);color:#fff;width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:800;flex-shrink:0">2</span> What type of waste? <span style="font-size:.74rem;color:var(--muted);font-weight:400">Tap to select</span></div>
+            <div class="waste-btn-grid">
+              <div class="waste-btn waste-btn-rec" onclick="selectWasteType('recyclable','plastic bottle',this)">
+                <div class="wb-icon">🔵</div><div class="wb-name">Recycle</div>
+                <div class="wb-hint">Plastic, paper, glass, metal, tin</div>
+                <div class="wb-pts" style="background:var(--blue-bg);color:var(--blue)">+15 pts</div>
+              </div>
+              <div class="waste-btn waste-btn-org" onclick="selectWasteType('organic','food scraps and vegetable peel',this)">
+                <div class="wb-icon">🟢</div><div class="wb-name">Food / Garden</div>
+                <div class="wb-hint">Peels, leaves, leftover food</div>
+                <div class="wb-pts" style="background:var(--green-bg);color:var(--green)">+10 pts</div>
+              </div>
+              <div class="waste-btn waste-btn-haz" onclick="selectWasteType('hazardous','old battery and paint',this)">
+                <div class="wb-icon">🔴</div><div class="wb-name">Hazardous</div>
+                <div class="wb-hint">Battery, paint, e-waste, oil</div>
+                <div class="wb-pts" style="background:var(--red-bg);color:var(--red)">+20 pts</div>
+              </div>
+              <div class="waste-btn waste-btn-med" onclick="selectWasteType('medical','syringe needle bandage tablet medicine',this)">
+                <div class="wb-icon">🟣</div><div class="wb-name">Medical</div>
+                <div class="wb-hint">Syringes, tablets, bandages, blood</div>
+                <div class="wb-pts" style="background:var(--purple-bg);color:var(--purple)">+30 pts ⭐</div>
+              </div>
+              <div class="waste-btn waste-btn-gen" onclick="selectWasteType('general','mixed trash',this)">
+                <div class="wb-icon">⚫</div><div class="wb-name">General</div>
+                <div class="wb-hint">Other mixed waste</div>
+                <div class="wb-pts" style="background:var(--bg);color:var(--muted)">+5 pts</div>
+              </div>
+            </div>
+          </div>
+
+          <form id="disposeForm">
+            <!-- Step 3: Bin -->
+            <div style="margin-bottom:1.1rem">
+              <div style="font-size:.88rem;font-weight:700;margin-bottom:.5rem;display:flex;align-items:center;gap:6px"><span style="background:var(--green);color:#fff;width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:800;flex-shrink:0">3</span> Which bin?</div>
+              <select id="f-bin"></select>
+            </div>
+
+            <!-- Step 4: Description (pre-filled) -->
+            <div class="form-group">
+              <label>Describe the item <span class="hint">(you can change or add details)</span></label>
+              <textarea id="f-desc" placeholder="e.g. empty plastic bottle, banana peel, used syringe…"></textarea>
+            </div>
+
+            <div class="form-group">
+              <label>Approximate weight (kg) <span class="hint">rough estimate is fine</span></label>
+              <input type="number" id="f-weight" value="0.5" step="0.1" min="0.1" max="20"/>
+            </div>
+
+            <!-- Pre-sort toggle -->
+            <label class="presort-toggle">
+              <input type="checkbox" id="f-presort"/>
+              <div>
+                <div style="font-size:.88rem;font-weight:700;color:var(--green)">🌟 I separated this waste at home before coming</div>
+                <div style="font-size:.74rem;color:var(--muted)">Earns you a +25 bonus for pre-sorting!</div>
+              </div>
+              <span class="presort-bonus-badge">+25 pts bonus</span>
+            </label>
+
+            <button type="submit" class="btn btn-primary" id="disposeBtn">🤖 AI Check & Earn Points</button>
+          </form>
+
+          <div class="result-box" id="resultBox">
+            <div style="text-align:center;font-size:2.4rem;margin-bottom:4px" id="resultIcon"></div>
+            <div style="font-size:.95rem;font-weight:700;text-align:center;margin-bottom:4px" id="resultMsg"></div>
+            <div class="pts-flash" id="resultPts"></div>
+            <div id="resultDetails"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right column -->
+      <div style="display:flex;flex-direction:column;gap:1.1rem">
+        <div class="card">
+          <div class="card-title">🤖 AI Waste Checker</div>
+          <p style="font-size:.82rem;color:var(--muted);margin-bottom:.85rem;line-height:1.6">Type any waste item — AI will tell you which bin, where it goes, and how many points you earn.</p>
+          <div class="form-group"><input id="ai-input" placeholder="e.g. used syringe / old battery / banana peel" onkeydown="if(event.key==='Enter')quickClassify()"/></div>
+          <button class="btn btn-primary" onclick="quickClassify()" style="margin-bottom:.8rem">Check Now</button>
+          <div id="aiResult"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">👤 Check Your Points</div>
+          <div class="form-group" style="margin-top:.5rem"><input id="lookup-qr" placeholder="Enter your QR code…" onkeydown="if(event.key==='Enter')lookupUser()"/></div>
+          <button class="btn btn-ghost btn" onclick="lookupUser()" style="width:100%;margin-bottom:.8rem">View My Stats</button>
+          <div id="userCard"></div>
+        </div>
+
+        <!-- Quick reference card -->
+        <div class="card">
+          <div class="card-title">📌 Quick Reference — Which Bin?</div>
+          <div style="display:flex;flex-direction:column;gap:7px;margin-top:.6rem;font-size:.83rem">
+            <div class="bin-type wt-recyclable" style="padding:7px 10px;border-radius:var(--radius-sm);width:100%;justify-content:flex-start">🔵 <strong>BLUE:</strong> Plastic, paper, glass, tin, cardboard</div>
+            <div class="bin-type wt-organic" style="padding:7px 10px;border-radius:var(--radius-sm);width:100%;justify-content:flex-start">🟢 <strong>GREEN:</strong> Food scraps, peels, leaves, garden</div>
+            <div class="bin-type wt-hazardous" style="padding:7px 10px;border-radius:var(--radius-sm);width:100%;justify-content:flex-start">🔴 <strong>RED:</strong> Battery, paint, oil, e-waste, bulbs</div>
+            <div class="bin-type wt-medical" style="padding:7px 10px;border-radius:var(--radius-sm);width:100%;justify-content:flex-start">🟣 <strong>PURPLE:</strong> Syringes, medicines, bandages, blood</div>
+            <div class="bin-type wt-general" style="padding:7px 10px;border-radius:var(--radius-sm);width:100%;justify-content:flex-start">⚫ <strong>BLACK:</strong> Mixed trash (last resort)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ SOCIETIES ══════════ -->
+<div id="page-societies" class="page">
+  <div class="container">
+    <div class="sh"><div class="sh-title">🏘️ Resident Welfare Associations</div><button class="refresh-btn" onclick="loadSocieties()">↺ Refresh</button></div>
+    <div class="g2" style="margin-bottom:1.25rem">
+      <div class="card" style="border:2px solid var(--red-border)">
+        <div class="card-title" style="color:var(--red)">🚨 Request Emergency Garbage Collection</div>
+        <p style="font-size:.82rem;color:var(--muted);margin-bottom:1rem;line-height:1.65">Use this if bins are overflowing due to festivals, weddings, events or unexpected surge. Truck will be sent based on urgency. Prevents Dengue / Malaria / rat infestation.</p>
+        <form id="emerForm">
+          <div class="form-group"><label>Your Society / Apartment</label><select id="e-society"></select></div>
+          <div class="form-group"><label>Your Name</label><input id="e-contact" placeholder="e.g. Ravi Kumar" required/></div>
+          <div class="form-group"><label>Phone Number</label><input id="e-phone" placeholder="+91 98765 43210"/></div>
+          <div class="form-group"><label>Reason <span class="hint">(be specific)</span></label><textarea id="e-reason" placeholder="e.g. Ganesh Chaturthi festival — 3 bins overflowing near entrance gate…"></textarea></div>
+          <div class="form-group">
+            <label>How Urgent?</label>
+            <select id="e-urgency">
+              <option value="critical">🔴 Very Urgent — Send truck RIGHT NOW</option>
+              <option value="high" selected>🟠 Urgent — Within 2 Hours</option>
+              <option value="medium">🟡 Medium — Within 4 Hours</option>
+            </select>
+          </div>
+          <button type="submit" class="btn btn-primary" style="background:var(--red)" id="emerBtn">🚨 Submit Request</button>
+        </form>
+        <div class="result-box" id="emerResult" style="margin-top:.85rem"></div>
+      </div>
+      <div class="card"><div class="card-title">🏅 Society Rankings by Cleanliness Points</div><div id="socList" style="margin-top:.5rem"><div class="empty">Loading…</div></div></div>
+    </div>
+    <div class="card"><div class="card-title">📋 All Emergency Requests</div><div id="emerList" style="margin-top:.6rem"><div class="empty">No emergency requests yet 🌿</div></div></div>
+  </div>
+</div>
+
+<!-- ══════════ COMPETITION ══════════ -->
+<div id="page-competition" class="page">
+  <div class="container">
+    <div class="sh"><div class="sh-title">🏆 Bengaluru Area Cleanliness League</div><button class="refresh-btn" onclick="loadCompetition()">↺ Refresh</button></div>
+    <div class="card" style="margin-bottom:1.25rem;background:var(--green-bg);border:2px solid var(--green-border)">
+      <div style="font-size:.88rem;color:var(--text);line-height:1.75">
+        🏛️ <strong>BBMP Monthly Competition:</strong> Every time you correctly dispose waste, your area earns points. Top 3 areas get extra govt sanitation funds — more sweepers, new bins, pest control. Areas with higher health scores see less Dengue, Malaria, and rat problems. Pre-sort at home to earn <strong style="color:var(--green)">+25 extra points</strong> for your area!
+      </div>
+    </div>
+    <div class="g2">
+      <div class="card"><div class="card-title">🗺️ Area Rankings</div><div id="areaRankings" style="margin-top:.5rem"><div class="empty">Loading…</div></div></div>
+      <div>
+        <div class="card" style="margin-bottom:1rem">
+          <div class="card-title">🎁 Award Govt Funds (Demo — Admin Only)</div>
+          <p style="font-size:.78rem;color:var(--muted);margin-bottom:.9rem">Simulate awarding bonus funds to a top-ranked area:</p>
+          <div class="form-group"><label>Select Area</label><select id="award-area"></select></div>
+          <div class="form-group"><label>Bonus Amount (₹)</label><input type="number" id="award-amount" value="25000" step="5000"/></div>
+          <button class="btn btn-primary" onclick="awardFunds()">🏛️ Award Govt Funds</button>
+          <div id="awardResult" style="margin-top:.7rem;font-size:.84rem"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">🦟 Disease Risk by Area</div>
+          <div id="healthTracker"><div class="empty">Loading…</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ LEADERBOARD ══════════ -->
+<div id="page-leaderboard" class="page">
+  <div class="container">
+    <div class="sh"><div class="sh-title">⭐ Citizen Reward Leaderboard</div><button class="refresh-btn" onclick="loadLeaderboard()">↺ Refresh</button></div>
+    <div class="g2">
+      <div class="card"><div class="card-title">Top Citizens This Month</div><div id="lbList" style="margin-top:.4rem"><div class="empty">Loading…</div></div></div>
+      <div class="card">
+        <div class="card-title">💰 How to Earn Points</div>
+        <div style="display:flex;flex-direction:column;gap:9px;margin-top:.6rem">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 12px;background:var(--blue-bg);border-radius:var(--radius-sm);border:1px solid var(--blue-border);font-size:.86rem"><span>🔵 Recyclable waste (plastic, glass, paper)</span><strong style="color:var(--blue)">+15 pts</strong></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 12px;background:var(--green-bg);border-radius:var(--radius-sm);border:1px solid var(--green-border);font-size:.86rem"><span>🟢 Organic waste (food, garden)</span><strong style="color:var(--green)">+10 pts</strong></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 12px;background:var(--red-bg);border-radius:var(--radius-sm);border:1px solid var(--red-border);font-size:.86rem"><span>🔴 Hazardous (battery, paint, e-waste)</span><strong style="color:var(--red)">+20 pts</strong></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 12px;background:var(--purple-bg);border-radius:var(--radius-sm);border:1px solid var(--purple-border);font-size:.86rem"><span>🟣 Medical waste (syringes, medicines)</span><strong style="color:var(--purple)">+30 pts ⭐</strong></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 12px;background:var(--green-bg);border-radius:var(--radius-sm);border:1px solid var(--green-border);font-size:.86rem"><span>🌟 Pre-sorted at home bonus</span><strong style="color:var(--green)">+25 pts</strong></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 12px;background:var(--bg);border-radius:var(--radius-sm);border:1px solid var(--border);font-size:.86rem;color:var(--muted)"><span>⚫ General / mixed waste</span><strong>+5 pts</strong></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 12px;background:var(--orange-bg);border-radius:var(--radius-sm);border:1px solid var(--orange-border);font-size:.86rem;color:var(--orange)"><span>⚠️ Wrong bin (penalty)</span><strong>+2 pts only</strong></div>
+        </div>
+        <hr class="sep">
+        <div class="card-title">🏅 Badges</div>
+        <div class="g3" style="gap:.7rem;margin-top:.6rem">
+          <div style="text-align:center;padding:.85rem;background:var(--green-bg);border-radius:var(--radius-sm);border:2px solid var(--green-border)"><div style="font-size:1.8rem">🌱</div><div style="font-weight:800;font-size:.86rem;margin:5px 0;color:var(--green)">Recycler</div><div style="font-size:.72rem;color:var(--muted)">100 points</div></div>
+          <div style="text-align:center;padding:.85rem;background:var(--blue-bg);border-radius:var(--radius-sm);border:2px solid var(--blue-border)"><div style="font-size:1.8rem">🦸</div><div style="font-weight:800;font-size:.86rem;margin:5px 0;color:var(--blue)">Green Hero</div><div style="font-size:.72rem;color:var(--muted)">200 points</div></div>
+          <div style="text-align:center;padding:.85rem;background:var(--yellow-bg);border-radius:var(--radius-sm);border:2px solid var(--yellow-border)"><div style="font-size:1.8rem">🏆</div><div style="font-weight:800;font-size:.86rem;margin:5px 0;color:var(--yellow)">Eco Champ</div><div style="font-size:.72rem;color:var(--muted)">500 points</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ ALERTS ══════════ -->
+<div id="page-alerts" class="page">
+  <div class="container">
+    <div class="sh"><div class="sh-title">🚨 Truck Dispatch & Alerts</div><button class="refresh-btn" onclick="loadAlerts()">↺ Refresh</button></div>
+    <div class="g2" style="margin-bottom:1.1rem">
+      <div class="card"><div class="card-title">🚛 Truck Fleet Status</div><div id="truckList" style="margin-top:.5rem"></div></div>
+      <div class="card" style="font-size:.85rem;color:var(--muted);line-height:1.75">
+        <div class="card-title">ℹ️ How It Works</div>
+        Each bin has a <strong style="color:var(--text)">sensor</strong> that measures how full it is. When a bin reaches <strong style="color:var(--orange)">80% full</strong>, the nearest free truck is automatically sent. This means <strong style="color:var(--green)">no overflow</strong>, no bad smell, no Dengue-breeding water, no rats. Medical bins get <strong style="color:var(--purple)">priority dispatch</strong>.
+      </div>
+    </div>
+    <div class="card"><div class="card-title">Recent Alerts</div><div id="alertList" style="margin-top:.6rem"><div class="empty">All bins healthy! 🌿</div></div></div>
+  </div>
+</div>
+
+<!-- ══════════ GUIDE ══════════ -->
+<div id="page-howit" class="page">
+  <div class="container">
+    <div class="card" style="margin-bottom:1.25rem">
+      <div class="card-title">🔄 How SmartWaste Works — Simple Steps</div>
+      <div class="flow-steps" style="margin-top:.85rem">
+        <div class="flow-step"><div class="flow-icon">🗑️</div><div class="flow-label">Bin sensor checks fill level</div></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step"><div class="flow-icon">📱</div><div class="flow-label">You scan QR & describe waste</div></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step"><div class="flow-icon">🤖</div><div class="flow-label">AI tells you which bin</div></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step"><div class="flow-icon">🌟</div><div class="flow-label">Pre-sort = bonus points</div></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step"><div class="flow-icon">⭐</div><div class="flow-label">Earn points + badges</div></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step"><div class="flow-icon">🏆</div><div class="flow-label">Area wins govt funds</div></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step"><div class="flow-icon">🚛</div><div class="flow-label">Truck auto-dispatched when full</div></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step"><div class="flow-icon">♻️</div><div class="flow-label">Waste goes to right facility</div></div>
+      </div>
+    </div>
+
+    <!-- 5-colour bin guide — big, visual, easy to understand -->
+    <div class="card" style="margin-bottom:1.25rem">
+      <div class="card-title">🗑️ 5 Types of Waste — Which Bin to Use?</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:1rem;margin-top:.85rem">
+        <div style="background:var(--blue-bg);border:2px solid var(--blue-border);border-radius:var(--radius);padding:1rem;text-align:center">
+          <div style="font-size:2.5rem">🔵</div>
+          <div style="font-weight:800;font-size:1rem;color:var(--blue);margin:.4rem 0">BLUE BIN</div>
+          <div style="font-size:.82rem;color:var(--text);margin-bottom:.4rem">♻️ <strong>Recyclable</strong></div>
+          <div style="font-size:.76rem;color:var(--muted);line-height:1.6">Plastic bottles, paper, newspapers, glass jars, tin cans, cardboard boxes</div>
+          <div style="margin-top:.6rem;background:var(--blue);color:#fff;padding:3px 10px;border-radius:20px;font-size:.75rem;font-weight:700;display:inline-block">+15 pts per drop</div>
+        </div>
+        <div style="background:var(--green-bg);border:2px solid var(--green-border);border-radius:var(--radius);padding:1rem;text-align:center">
+          <div style="font-size:2.5rem">🟢</div>
+          <div style="font-weight:800;font-size:1rem;color:var(--green);margin:.4rem 0">GREEN BIN</div>
+          <div style="font-size:.82rem;color:var(--text);margin-bottom:.4rem">🌱 <strong>Organic / Food</strong></div>
+          <div style="font-size:.76rem;color:var(--muted);line-height:1.6">Vegetable peels, leftover food, tea leaves, garden cuttings, fruit waste</div>
+          <div style="margin-top:.6rem;background:var(--green);color:#fff;padding:3px 10px;border-radius:20px;font-size:.75rem;font-weight:700;display:inline-block">+10 pts per drop</div>
+        </div>
+        <div style="background:var(--red-bg);border:2px solid var(--red-border);border-radius:var(--radius);padding:1rem;text-align:center">
+          <div style="font-size:2.5rem">🔴</div>
+          <div style="font-weight:800;font-size:1rem;color:var(--red);margin:.4rem 0">RED BIN</div>
+          <div style="font-size:.82rem;color:var(--text);margin-bottom:.4rem">⚠️ <strong>Hazardous</strong></div>
+          <div style="font-size:.76rem;color:var(--muted);line-height:1.6">Old batteries, paints, motor oil, pesticides, e-waste, fluorescent bulbs</div>
+          <div style="margin-top:.6rem;background:var(--red);color:#fff;padding:3px 10px;border-radius:20px;font-size:.75rem;font-weight:700;display:inline-block">+20 pts per drop</div>
+        </div>
+        <div style="background:var(--purple-bg);border:2px solid var(--purple-border);border-radius:var(--radius);padding:1rem;text-align:center;position:relative">
+          <div style="position:absolute;top:8px;right:8px;background:var(--red);color:#fff;font-size:.62rem;font-weight:700;padding:2px 6px;border-radius:20px">⚠️ DANGER</div>
+          <div style="font-size:2.5rem">🟣</div>
+          <div style="font-weight:800;font-size:1rem;color:var(--purple);margin:.4rem 0">PURPLE BIN</div>
+          <div style="font-size:.82rem;color:var(--text);margin-bottom:.4rem">🏥 <strong>Medical Waste</strong></div>
+          <div style="font-size:.76rem;color:var(--muted);line-height:1.6">Syringes, used needles, bandages, expired tablets, blood-stained items, IV tubes, surgical gloves</div>
+          <div style="margin-top:.6rem;background:var(--purple);color:#fff;padding:3px 10px;border-radius:20px;font-size:.75rem;font-weight:700;display:inline-block">+30 pts — HIGHEST!</div>
+        </div>
+        <div style="background:var(--bg);border:2px solid var(--border);border-radius:var(--radius);padding:1rem;text-align:center">
+          <div style="font-size:2.5rem">⚫</div>
+          <div style="font-weight:800;font-size:1rem;color:var(--muted);margin:.4rem 0">BLACK BIN</div>
+          <div style="font-size:.82rem;color:var(--text);margin-bottom:.4rem">🗑️ <strong>General / Mixed</strong></div>
+          <div style="font-size:.76rem;color:var(--muted);line-height:1.6">Only use if none of the above bins match. Try to avoid — reduce, reuse first!</div>
+          <div style="margin-top:.6rem;background:var(--muted);color:#fff;padding:3px 10px;border-radius:20px;font-size:.75rem;font-weight:700;display:inline-block">+5 pts per drop</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="g2">
+      <div class="card">
+        <div class="card-title">🏥 Medical Waste — Why It Matters</div>
+        <div style="display:flex;flex-direction:column;gap:9px;margin-top:.6rem">
+          <div style="padding:10px;background:var(--purple-bg);border-radius:var(--radius-sm);border-left:4px solid var(--purple)"><div style="font-weight:700;font-size:.87rem;color:var(--purple)">🔬 What is Medical Waste?</div><div style="font-size:.8rem;color:var(--muted);margin-top:3px;line-height:1.6">Used syringes, needles, IV tubes, bandages, blood samples, expired medicine strips, surgical gloves, PPE kits, thermometers</div></div>
+          <div style="padding:10px;background:var(--red-bg);border-radius:var(--radius-sm);border-left:4px solid var(--red)"><div style="font-weight:700;font-size:.87rem;color:var(--red)">☣️ Danger if Mixed with Regular Waste</div><div style="font-size:.8rem;color:var(--muted);margin-top:3px;line-height:1.6">Spreads HIV, Hepatitis B/C, infections. Injures waste-pickers. Contaminates groundwater and soil. Illegal under Bio-Medical Waste Rules, 2016.</div></div>
+          <div style="padding:10px;background:var(--green-bg);border-radius:var(--radius-sm);border-left:4px solid var(--green)"><div style="font-weight:700;font-size:.87rem;color:var(--green)">✅ How to Dispose Safely</div><div style="font-size:.8rem;color:var(--muted);margin-top:3px;line-height:1.6">Seal in a puncture-proof RED or YELLOW bag. Use PURPLE bin (BIN-009 or BIN-010). Or call BBMP Bio-Medical helpline: <strong>1800-425-0210</strong>.</div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">🌟 Pre-Sorting Benefit — Why Separate at Home?</div>
+        <div style="font-size:.84rem;color:var(--muted);line-height:1.75;margin-top:.5rem">
+          When you separate waste <strong style="color:var(--text)">before</strong> coming to the bin:<br>
+          ✅ Govt saves <strong>₹2–5 per kg</strong> in sorting labour<br>
+          ✅ Recyclables reach factory <strong>2× faster</strong>, cleaner<br>
+          ✅ Compost is purer — better for farmers<br>
+          ✅ Medical waste treated safely — no infections<br>
+          ✅ You earn <strong style="color:var(--green)">+25 extra points</strong> every time!<br>
+          ✅ Your area ranks higher → more BBMP funds<br><br>
+          <strong style="color:var(--text)">Rule of thumb at home:</strong><br>
+          Keep 4 small bins: 🔵 Dry / 🟢 Wet / 🔴 Dangerous / 🟣 Medical
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="footer">🌱 SmartWaste Bengaluru — BBMP Smart City Initiative · All levels of society welcome · Prototype</div>
+
+<!-- ══════════ CHATBOT ══════════ -->
+<div id="chatWidget">
+  <div id="chatBox">
+    <div class="chat-header">
+      <div class="chat-avatar">🤖</div>
+      <div class="chat-header-info"><div class="cname">EcoBot — Waste Helper</div><div class="cstatus">Ask me anything! Namaskara 🙏</div></div>
+      <button class="chat-close" onclick="toggleChat()">✕</button>
+    </div>
+    <div class="chat-messages" id="chatMessages"></div>
+    <div class="chat-suggs" id="chatSuggs">
+      <span class="chat-sugg" onclick="sendSugg(this)">Where do I put old tablets?</span>
+      <span class="chat-sugg" onclick="sendSugg(this)">How to earn more points?</span>
+      <span class="chat-sugg" onclick="sendSugg(this)">Request emergency truck</span>
+      <span class="chat-sugg" onclick="sendSugg(this)">What is pre-sorting?</span>
+    </div>
+    <div class="chat-footer">
+      <input class="chat-input" id="chatInput" placeholder="Type here… e.g. Where do I throw syringes?" onkeydown="if(event.key==='Enter')sendChat()"/>
+      <button class="chat-send" onclick="sendChat()">➤</button>
+    </div>
+  </div>
+  <div id="chatNotif" style="display:none;position:absolute;top:-4px;right:-4px;width:20px;height:20px;background:var(--red);border-radius:50%;border:2px solid #fff;font-size:.62rem;color:#fff;font-weight:700;align-items:center;justify-content:center">1</div>
+  <button id="chatToggle" onclick="toggleChat()" title="Chat with EcoBot">🤖</button>
+</div>
+
+<script>
+const API = 'http://localhost:3001/api';
+let chatOpen=false, chatHistory=[], binMap=null, binMarkers={};
+
+// ── NAV ──
+function goTo(name,btn){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active'); btn.classList.add('active');
+  if(name==='bins'){loadBins();setTimeout(()=>binMap&&binMap.invalidateSize(),150);}
+  if(name==='leaderboard') loadLeaderboard();
+  if(name==='alerts')      loadAlerts();
+  if(name==='dispose')     {loadBinSelect();loadCitizenChips();}
+  if(name==='societies')   {loadSocieties();loadEmerForm();}
+  if(name==='competition') loadCompetition();
+}
+
+// ── API ──
+async function apiFetch(p){try{const r=await fetch(API+p);return r.ok?r.json():null;}catch{return null;}}
+async function apiPost(p,b){try{const r=await fetch(API+p,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)});return r.json();}catch(e){return{error:e.message};}}
+
+// ── HELPERS ──
+function pbarClass(l){return l<50?'low':l<75?'mid':l<90?'high':'full';}
+function wtStyle(t){
+  const m={
+    recyclable:{bg:'var(--blue-bg)',fg:'var(--blue)',border:'var(--blue-border)'},
+    organic:{bg:'var(--green-bg)',fg:'var(--green)',border:'var(--green-border)'},
+    hazardous:{bg:'var(--red-bg)',fg:'var(--red)',border:'var(--red-border)'},
+    medical:{bg:'var(--purple-bg)',fg:'var(--purple)',border:'var(--purple-border)'},
+    general:{bg:'var(--bg)',fg:'var(--muted)',border:'var(--border)'},
+  };
+  return m[t]||m.general;
+}
+function fmt(n){return parseFloat(n||0).toFixed(2);}
+function timeAgo(ts){const s=Math.floor((Date.now()-new Date(ts))/1000);return s<60?`${s}s ago`:s<3600?`${Math.floor(s/60)}m ago`:`${Math.floor(s/3600)}h ago`;}
+function animNum(el,v){if(!el)return;const f=typeof v==='number'?v.toFixed(2):v;if(el.textContent!==String(f)){el.style.color='var(--green)';el.textContent=f;setTimeout(()=>{el.style.color='';},700);}}
+
+// ── DASHBOARD ──
+async function refreshDashboard(){
+  const[stats,disposals]=await Promise.all([apiFetch('/stats'),apiFetch('/disposals')]);
+  if(!stats)return;
+  animNum(document.getElementById('s-total'),stats.totalDisposals);
+  animNum(document.getElementById('s-co2'),parseFloat(fmt(stats.co2Saved)));
+  animNum(document.getElementById('s-rec'),parseFloat(fmt(stats.recyclableKg)));
+  animNum(document.getElementById('s-org'),parseFloat(fmt(stats.organicKg)));
+  animNum(document.getElementById('s-haz'),parseFloat(fmt(stats.hazardousKg)));
+  animNum(document.getElementById('s-med'),parseFloat(fmt(stats.medicalKg)));
+  const fe=document.getElementById('s-full');fe.textContent=stats.fullBins;fe.style.color=stats.fullBins>0?'var(--red)':'';
+  const ee=document.getElementById('s-emer');ee.textContent=stats.pendingEmergencies;ee.style.color=stats.pendingEmergencies>0?'var(--red)':'';
+  document.getElementById('alertCount').textContent=stats.pendingAlerts;
+  const ch=document.getElementById('s-co2-hint');if(stats.co2Saved>0)ch.textContent=`≈${(stats.co2Saved*0.12).toFixed(1)} trees`;
+  renderWasteChart(stats);renderCo2Bar(stats);
+  if(disposals)renderRecent(disposals.slice(0,8));
+}
+function renderWasteChart(s){
+  const cats=[
+    {label:'🔵 Recyclable',kg:s.recyclableKg||0,color:'var(--blue)',bg:'var(--blue-bg)'},
+    {label:'🟢 Organic',   kg:s.organicKg||0,   color:'var(--green)',bg:'var(--green-bg)'},
+    {label:'🔴 Hazardous', kg:s.hazardousKg||0, color:'var(--red)',  bg:'var(--red-bg)'},
+    {label:'🟣 Medical',   kg:s.medicalKg||0,   color:'var(--purple)',bg:'var(--purple-bg)'},
+    {label:'⚫ General',   kg:s.generalKg||0,   color:'var(--muted)',bg:'var(--bg)'},
+  ];
+  const total=cats.reduce((a,c)=>a+c.kg,0)||1;
+  document.getElementById('wasteChart').innerHTML=cats.map(c=>{
+    const pct=Math.round((c.kg/total)*100);
+    return `<div style="margin-bottom:11px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><span style="font-size:.82rem;font-weight:600">${c.label}</span><span style="font-size:.76rem;color:var(--muted)">${fmt(c.kg)}kg &nbsp;<strong>${pct}%</strong></span></div><div class="pbar-wrap"><div class="pbar" style="width:${pct}%;background:${c.color}"></div></div></div>`;
+  }).join('');
+}
+function renderCo2Bar(s){
+  const goal=50,pct=Math.min(100,Math.round(((s.co2Saved||0)/goal)*100));
+  document.getElementById('co2Bar').innerHTML=`<div style="display:flex;justify-content:space-between;font-size:.78rem;margin-bottom:4px"><span style="color:var(--muted)">Community Goal: ${goal} kg CO₂</span><span style="color:var(--blue);font-weight:700">${pct}% reached</span></div><div class="pbar-wrap" style="height:12px;border-radius:8px"><div class="pbar" style="width:${pct}%;background:linear-gradient(90deg,var(--blue),var(--green));height:100%;border-radius:8px"></div></div><div style="font-size:.72rem;color:var(--muted);margin-top:4px">Saved so far: <strong style="color:var(--blue)">${fmt(s.co2Saved)} kg</strong> · 1 kg recyclable = 2.5 kg CO₂ saved</div>`;
+}
+function renderRecent(d){
+  const el=document.getElementById('recentDisposals');
+  if(!d.length){el.innerHTML='<div class="empty">No disposals yet 🌱</div>';return;}
+  el.innerHTML=d.map(x=>{
+    const ws=wtStyle(x.classification);
+    return `<div style="display:flex;align-items:center;gap:9px;padding:8px 4px;border-bottom:1px solid var(--border2)"><span class="tag" style="background:${ws.bg};color:${ws.fg};border:1px solid ${ws.border};flex-shrink:0;font-size:.7rem">${x.classification}</span><div style="flex:1;min-width:0"><div style="font-size:.84rem;font-weight:700">${x.userName}${x.presortBonusAwarded>0?'<span style="margin-left:5px;font-size:.65rem;color:var(--green);background:var(--green-bg);padding:1px 5px;border-radius:10px">🌟presorted</span>':''}</div><div style="font-size:.7rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${x.wasteDescription}</div></div><div style="text-align:right;flex-shrink:0"><div style="font-size:.85rem;font-weight:800;color:var(--yellow)">+${x.pointsEarned}</div><div style="font-size:.66rem;color:var(--muted)">${timeAgo(x.timestamp)}</div></div></div>`;
+  }).join('');
+}
+
+// ── BINS + MAP ──
+function markerColor(l,type){if(type==='medical')return'#8250df';return l<50?'#1a7f37':l<75?'#9a6700':l<90?'#bc4c00':'#cf222e';}
+function makePinSvg(color,label){
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="38" height="46" viewBox="0 0 38 46"><filter id="sh"><feDropShadow dx="0" dy="2" stdDeviation="2" flood-opacity=".25"/></filter><ellipse cx="19" cy="44" rx="6" ry="2.5" fill="rgba(0,0,0,.15)"/><path d="M19 2C10 2 2 10 2 19c0 11 17 25 17 25S36 30 36 19C36 10 28 2 19 2Z" fill="${color}" stroke="white" stroke-width="2" filter="url(#sh)"/><text x="19" y="23" text-anchor="middle" font-size="10" font-weight="800" font-family="-apple-system,sans-serif" fill="white">${label}</text></svg>`;
+}
+function initMap(bins){
+  if(!binMap){
+    binMap=L.map('binMap',{zoomControl:true,scrollWheelZoom:true});
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',maxZoom:19}).addTo(binMap);
+  }
+  const ll=bins.map(b=>[b.lat,b.lng]);
+  if(ll.length)binMap.fitBounds(L.latLngBounds(ll).pad(.18));
+  bins.forEach(bin=>{
+    const color=markerColor(bin.fillLevel,bin.type),ws=wtStyle(bin.type),isFull=bin.fillLevel>=80;
+    const icon=L.divIcon({className:'',html:makePinSvg(color,`${bin.fillLevel}%`),iconSize:[38,46],iconAnchor:[19,46],popupAnchor:[0,-46]});
+    const popupHtml=`<div class="popup-id">${bin.id}</div><div class="popup-loc">${bin.location}</div><span class="popup-type" style="background:${ws.bg};color:${ws.fg};border:1px solid ${ws.border}">${bin.type==='medical'?'🟣':''}${bin.type}</span><div class="popup-fill-wrap"><div class="popup-fill-bar" style="width:${bin.fillLevel}%;background:${color}"></div></div><div style="display:flex;justify-content:space-between"><span class="popup-meta">Fill level</span><strong style="color:${color}">${bin.fillLevel}%</strong></div>${isFull?`<div style="font-size:.72rem;color:var(--red);margin-top:3px;font-weight:700">🚨 Truck dispatched!</div>`:''}<div class="popup-meta">Emptied: ${new Date(bin.lastEmptied).toLocaleTimeString()}</div><button class="popup-btn" onclick="emptyBinFromMap('${bin.id}')">🚛 Mark as Emptied</button>`;
+    if(binMarkers[bin.id]){binMarkers[bin.id].setIcon(icon);binMarkers[bin.id].setPopupContent(popupHtml);}
+    else{binMarkers[bin.id]=L.marker([bin.lat,bin.lng],{icon}).addTo(binMap).bindPopup(popupHtml,{maxWidth:240,minWidth:200});}
+  });
+}
+async function loadBins(){
+  const bins=await apiFetch('/bins'),el=document.getElementById('binGrid');
+  if(!bins){el.innerHTML='<div class="empty">Could not load bins.</div>';return;}
+  initMap(bins);
+  el.innerHTML=bins.map(bin=>{
+    const pc=pbarClass(bin.fillLevel),ws=wtStyle(bin.type),isFull=bin.fillLevel>=80;
+    const isMedical=bin.type==='medical';
+    return `<div class="bin-card ${isFull?'alert-bin':''}" onclick="focusBinOnMap('${bin.id}',${bin.lat},${bin.lng})"><div style="display:flex;justify-content:space-between;align-items:flex-start"><span class="bin-id">${bin.id}</span>${isFull?'<span style="font-size:.65rem;background:var(--red-bg);color:var(--red);padding:2px 7px;border-radius:20px;font-weight:700;border:1px solid var(--red-border)">🚨 FULL</span>':''}</div><div class="bin-loc">${bin.location}</div><span class="bin-type" style="background:${ws.bg};color:${ws.fg};border:1px solid ${ws.border}">${isMedical?'🟣 ':''}${bin.type.toUpperCase()}</span><div class="pbar-wrap"><div class="pbar ${pc}" style="width:${bin.fillLevel}%"></div></div><div style="display:flex;justify-content:space-between;font-size:.74rem;margin-top:5px"><span style="color:var(--muted)">Fill level</span><span style="font-weight:700;color:${isFull?'var(--red)':bin.fillLevel>50?'var(--orange)':'var(--green)'}">${bin.fillLevel}%</span></div><div style="font-size:.66rem;color:var(--subtle);margin-top:2px">📍 ${bin.lat.toFixed(4)}, ${bin.lng.toFixed(4)}</div>${isMedical?'<div style="font-size:.68rem;color:var(--purple);margin-top:3px;font-weight:600">🟣 Medical Bio-Waste Bin</div>':''}<button class="bin-action" onclick="event.stopPropagation();emptyBin('${bin.id}')">🚛 Mark as Emptied</button></div>`;
+  }).join('');
+}
+function focusBinOnMap(id,lat,lng){if(!binMap)return;binMap.setView([lat,lng],16,{animate:true});if(binMarkers[id])binMarkers[id].openPopup();document.getElementById('binMap').scrollIntoView({behavior:'smooth',block:'nearest'});}
+async function emptyBinFromMap(id){await apiPost(`/bins/${id}/empty`,{});loadBins();}
+async function emptyBin(id){await apiPost(`/bins/${id}/empty`,{});loadBins();}
+
+// ── DISPOSE ──
+async function loadBinSelect(){
+  const bins=await apiFetch('/bins');if(!bins)return;
+  document.getElementById('f-bin').innerHTML=bins.map(b=>{
+    const isMed=b.type==='medical';
+    return `<option value="${b.id}">${isMed?'🟣':''} ${b.id} — ${b.type.toUpperCase()} — ${b.location} [${b.fillLevel}%]</option>`;
+  }).join('');
+}
+async function loadCitizenChips(){
+  const users=await apiFetch('/users');if(!users)return;
+  document.getElementById('citizenChips').innerHTML=users.map(u=>`<span class="chip" onclick="document.getElementById('f-qr').value='${u.qrCode||''}'">👤 ${u.name}</span>`).join('');
+}
+
+function selectWasteType(type,desc,btnEl){
+  document.querySelectorAll('.waste-btn').forEach(b=>b.classList.remove('selected'));
+  btnEl.classList.add('selected');
+  document.getElementById('f-desc').value=desc;
+  // Auto-select the right bin type
+  const sel=document.getElementById('f-bin');
+  for(let i=0;i<sel.options.length;i++){
+    if(sel.options[i].text.toLowerCase().includes(type)){sel.selectedIndex=i;break;}
+  }
+  // Show medical warning
+  if(type==='medical'){document.querySelector('.medical-warning').style.border='3px solid var(--purple)';}
+}
+
+document.getElementById('disposeForm').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const btn=document.getElementById('disposeBtn');
+  btn.disabled=true;btn.textContent='🤖 AI checking…';
+  const r=await apiPost('/dispose',{
+    qrCode:document.getElementById('f-qr').value.trim(),
+    binId:document.getElementById('f-bin').value,
+    wasteDescription:document.getElementById('f-desc').value.trim(),
+    weightKg:parseFloat(document.getElementById('f-weight').value),
+    preSorted:document.getElementById('f-presort').checked,
+  });
+  btn.disabled=false;btn.textContent='🤖 AI Check & Earn Points';
+  const box=document.getElementById('resultBox');
+  box.style.display='block';box.scrollIntoView({behavior:'smooth',block:'nearest'});
+  if(r.error){
+    box.className='result-box err';
+    document.getElementById('resultIcon').textContent='❌';
+    document.getElementById('resultMsg').textContent=r.error;
+    document.getElementById('resultPts').textContent='';
+    document.getElementById('resultDetails').innerHTML='';
+    return;
+  }
+  const isMismatch=r.disposal?.typeMismatch;
+  box.className=`result-box ${isMismatch?'warn':''}`;
+  document.getElementById('resultIcon').textContent=isMismatch?'⚠️':'✅';
+  document.getElementById('resultMsg').textContent=r.message;
+  document.getElementById('resultPts').textContent=`+${r.pointsEarned} pts`;
+  const c=r.classification;
+  const ws=wtStyle(c.wasteType);
+  document.getElementById('resultDetails').innerHTML=`
+    <div class="result-row"><span class="rl">Waste Type</span><span class="rr"><span class="tag" style="background:${ws.bg};color:${ws.fg};border:1px solid ${ws.border}">${c.icon||''} ${c.wasteType}</span></span></div>
+    <div class="result-row"><span class="rl">AI Confidence</span><span class="rr" style="color:var(--blue);font-weight:700">${c.confidence}%</span></div>
+    <div class="result-row"><span class="rl">Goes to</span><span class="rr">${c.destination}</span></div>
+    <div class="result-row"><span class="rl">CO₂ Saved</span><span class="rr" style="color:var(--green);font-weight:700">${c.co2SavedKg} kg</span></div>
+    ${r.presortBonusAwarded>0?`<div class="result-row"><span class="rl">Pre-Sort Bonus</span><span class="rr" style="color:var(--green);font-weight:700">+${r.presortBonusAwarded} pts 🌟</span></div>`:''}
+    <div class="result-row"><span class="rl">Your Total Points</span><span class="rr" style="color:var(--yellow);font-weight:800;font-size:1.1rem">${r.totalPoints} ⭐</span></div>
+    <div class="result-row"><span class="rl">Tip</span><span class="rr" style="font-size:.78rem">${c.recommendation}</span></div>
+    ${r.newBadges?.length?`<div style="margin-top:8px">${r.newBadges.map(b=>`<span class="badge-pill">🏅 ${b}</span>`).join('')}</div>`:''}
+  `;
+  refreshDashboard();loadBinSelect();
+});
+
+async function quickClassify(){
+  const desc=document.getElementById('ai-input').value.trim();if(!desc)return;
+  const r=await apiPost('/classify',{wasteDescription:desc,weightKg:0.5});if(!r||r.error)return;
+  const ws=wtStyle(r.wasteType);
+  document.getElementById('aiResult').innerHTML=`<div style="background:${ws.bg};border-radius:var(--radius-sm);padding:12px;border:2px solid ${ws.border}"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px"><span class="tag" style="background:${ws.bg};color:${ws.fg};border:1px solid ${ws.border};font-size:.82rem">${r.icon||''} ${r.wasteType.toUpperCase()}</span><span style="font-size:.76rem;color:var(--muted)">AI: ${r.confidence}% sure</span></div><div style="font-size:.82rem;color:var(--muted);margin-bottom:4px">📦 Goes to: <strong style="color:var(--text)">${r.destination}</strong></div><div style="font-size:.78rem;color:var(--muted);margin-bottom:6px;line-height:1.5">💡 ${r.recommendation}</div><div style="display:flex;gap:12px;font-size:.78rem;flex-wrap:wrap"><span style="color:var(--green);font-weight:600">🌿 CO₂ saved: ${r.co2SavedKg}kg</span><span style="color:var(--yellow);font-weight:600">⭐ +${r.pointsEarned} pts</span><span style="color:var(--green);font-weight:600">🌟 +${r.pointsEarned+25} with presort</span></div></div>`;
+}
+
+async function lookupUser(){
+  const qr=document.getElementById('lookup-qr').value.trim();if(!qr)return;
+  const u=await apiFetch(`/users/qr/${qr}`);const el=document.getElementById('userCard');
+  if(!u||u.error){el.innerHTML='<div style="font-size:.82rem;color:var(--red)">User not found. Please check QR code.</div>';return;}
+  el.innerHTML=`<div style="background:var(--bg);border-radius:var(--radius-sm);padding:12px;border:2px solid var(--border)"><div style="font-weight:800;font-size:1rem;margin-bottom:3px">${u.name}</div><div style="font-size:.76rem;color:var(--muted);margin-bottom:8px">${u.email}</div><div style="display:flex;gap:14px;font-size:.88rem;flex-wrap:wrap;margin-bottom:8px"><span>⭐ <strong style="color:var(--yellow)">${u.points}</strong> pts</span><span>♻️ <strong>${u.disposals?.length||0}</strong> disposals</span><span>🌟 <strong style="color:var(--green)">${u.presortBonus||0}</strong> presort pts</span></div>${u.badges?.length?`<div>${u.badges.map(b=>`<span class="badge-pill">🏅 ${b}</span>`).join('')}</div>`:'<div style="font-size:.74rem;color:var(--muted)">No badges yet — start disposing!</div>'}</div>`;
+}
+
+// ── SOCIETIES ──
+async function loadSocieties(){
+  const socs=await apiFetch('/societies');const el=document.getElementById('socList');if(!socs)return;
+  const rank=['🥇','🥈','🥉'],colors=['#d4af37','#a0a0a0','#cd7f32'];
+  el.innerHTML=socs.map((s,i)=>`<div class="lb-row"><div class="lb-rank" style="color:${colors[i]||'var(--muted)'}">${rank[i]||'#'+(i+1)}</div><div><div class="lb-name">${s.name}</div><div class="lb-sub">${s.members} members · ${s.binCount} bins ${s.fullBins>0?`· <span style="color:var(--red)">${s.fullBins} full</span>`:''}</div></div><div style="text-align:right"><div class="lb-pts">${s.totalPoints.toLocaleString()}</div>${s.pendingEmergencies>0?`<div style="font-size:.68rem;color:var(--red);font-weight:700">🚨 ${s.pendingEmergencies} pending</div>`:''}</div></div>`).join('');
+  loadEmerLog();
+}
+async function loadEmerForm(){
+  const socs=await apiFetch('/societies');if(!socs)return;
+  document.getElementById('e-society').innerHTML=socs.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+}
+async function loadEmerLog(){
+  const reqs=await apiFetch('/emergency');const el=document.getElementById('emerList');
+  if(!reqs||!reqs.length){el.innerHTML='<div class="empty">No emergency requests yet 🌿</div>';return;}
+  const urgColor={critical:'var(--red)',high:'var(--orange)',medium:'var(--yellow)'};
+  const urgBg={critical:'var(--red-bg)',high:'var(--orange-bg)',medium:'var(--yellow-bg)'};
+  el.innerHTML=reqs.map(r=>`<div class="emer-card ${r.status}"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px"><div style="flex:1"><div style="font-weight:800;font-size:.9rem">${r.societyName}</div><div style="font-size:.8rem;color:var(--muted);margin-top:2px">${r.reason}</div><div style="font-size:.72rem;color:var(--subtle);margin-top:3px">📞 ${r.contactName} · ${r.contactPhone} · ${new Date(r.timestamp).toLocaleString()}</div>${r.assignedTruck?`<div style="font-size:.72rem;color:var(--green);margin-top:2px;font-weight:700">🚛 ${r.assignedTruck} dispatched</div>`:''}</div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px"><span class="emer-urg" style="background:${urgBg[r.urgency]};color:${urgColor[r.urgency]};border:1px solid ${urgColor[r.urgency]}">${r.urgency.toUpperCase()}</span><span class="tag" style="background:${r.status==='resolved'?'var(--green-bg)':'var(--red-bg)'};color:${r.status==='resolved'?'var(--green)':'var(--red)'};border:1px solid ${r.status==='resolved'?'var(--green-border)':'var(--red-border)'}">${r.status}</span>${r.status==='pending'?`<button class="btn btn-ghost" style="font-size:.72rem;padding:4px 10px" onclick="resolveEmer('${r.id}')">✓ Done</button>`:''}</div></div></div>`).join('');
+}
+document.getElementById('emerForm').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const btn=document.getElementById('emerBtn');btn.disabled=true;btn.textContent='Sending…';
+  const r=await apiPost('/emergency',{societyId:document.getElementById('e-society').value,contactName:document.getElementById('e-contact').value.trim(),contactPhone:document.getElementById('e-phone').value.trim(),reason:document.getElementById('e-reason').value.trim(),urgency:document.getElementById('e-urgency').value});
+  btn.disabled=false;btn.textContent='🚨 Submit Request';
+  const box=document.getElementById('emerResult');box.style.display='block';
+  if(r.error){box.className='result-box err';box.innerHTML=`<strong>❌ ${r.error}</strong>`;return;}
+  box.className='result-box';box.innerHTML=`<div style="font-weight:700;font-size:.9rem;margin-bottom:5px">${r.message}</div><div style="font-size:.78rem;color:var(--muted)">Request #${r.request.id.slice(0,8)}${r.request.assignedTruck?' · Truck: '+r.request.assignedTruck:''}</div>`;
+  loadSocieties();
+});
+async function resolveEmer(id){await apiPost(`/emergency/${id}/resolve`,{});loadSocieties();}
+
+// ── COMPETITION ──
+async function loadCompetition(){
+  const areas=await apiFetch('/areas');if(!areas)return;
+  const rank=['🥇','🥈','🥉'];
+  document.getElementById('areaRankings').innerHTML=areas.map((a,i)=>{
+    const cl=a.cleanliness,hs=a.healthScore;
+    const clC=cl>=85?'var(--green)':cl>=70?'var(--yellow)':'var(--red)';
+    const hsC=hs>=80?'var(--green)':hs>=65?'var(--yellow)':'var(--red)';
+    return `<div class="area-row"><div class="area-rank">${rank[i]||'#'+(i+1)}</div><div><div style="font-weight:800;font-size:.9rem">${a.name} <span style="font-size:.7rem;color:var(--muted);font-weight:400">· ${a.district}</span></div><div style="font-size:.72rem;color:var(--muted)">Pop: ${(a.population/1000).toFixed(0)}K · ${a.societyCount} societies · ${a.binCount} bins</div><div class="health-bar"><span style="font-size:.66rem;color:var(--muted)">Clean:</span><div class="health-bar-bg"><div class="health-bar-fill" style="width:${cl}%;background:${clC}"></div></div><span style="font-size:.66rem;color:${clC};font-weight:700">${cl}%</span><span style="font-size:.66rem;color:var(--muted);margin-left:6px">Health:</span><div class="health-bar-bg"><div class="health-bar-fill" style="width:${hs}%;background:${hsC}"></div></div><span style="font-size:.66rem;color:${hsC};font-weight:700">${hs}%</span></div></div><div style="text-align:right;flex-shrink:0"><div style="font-size:1.05rem;font-weight:800;color:var(--yellow)">${a.totalPoints.toLocaleString()}</div><div style="font-size:.72rem;color:var(--green);font-weight:700">${a.fundLabel}</div></div></div>`;
+  }).join('');
+  document.getElementById('award-area').innerHTML=areas.map(a=>`<option value="${a.id}">${a.rank}. ${a.name} (${a.fundLabel})</option>`).join('');
+  document.getElementById('healthTracker').innerHTML=areas.slice(0,6).map(a=>{
+    const risk=a.healthScore>=85?'🟢 Low Risk':a.healthScore>=70?'🟡 Moderate':' 🔴 High Risk';
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border2);font-size:.82rem"><span style="font-weight:600">${a.name}</span><span style="font-weight:700">${risk}</span></div>`;
+  }).join('');
+}
+async function awardFunds(){
+  const areaId=document.getElementById('award-area').value,bonus=parseInt(document.getElementById('award-amount').value)||25000;
+  const r=await apiPost(`/areas/${areaId}/award`,{bonus});
+  document.getElementById('awardResult').innerHTML=r.error?`<span style="color:var(--red)">❌ ${r.error}</span>`:`<span style="color:var(--green);font-weight:700">✅ ${r.message}</span>`;
+  loadCompetition();
+}
+
+// ── LEADERBOARD ──
+async function loadLeaderboard(){
+  const users=await apiFetch('/users');if(!users)return;
+  const rank=['🥇','🥈','🥉'],colors=['#d4af37','#a0a0a0','#cd7f32'];
+  document.getElementById('lbList').innerHTML=users.map((u,i)=>`<div class="lb-row"><div class="lb-rank" style="color:${colors[i]||'var(--muted)'}">${rank[i]||'#'+(i+1)}</div><div><div class="lb-name">${u.name}</div><div class="lb-sub">${u.disposalCount} disposals ${u.presortBonus>0?`· 🌟 ${u.presortBonus} presort`:''} &nbsp;${u.badges.map(b=>`<span class="badge-pill">${b}</span>`).join('')}</div></div><div class="lb-pts">${u.points} ⭐</div></div>`).join('');
+}
+
+// ── ALERTS ──
+async function loadAlerts(){
+  const[alertsData,trucks]=await Promise.all([apiFetch('/alerts'),apiFetch('/trucks')]);
+  const el=document.getElementById('alertList');
+  if(alertsData?.length){el.innerHTML=alertsData.map(a=>`<div class="alert-row ${a.status}"><div style="flex:1"><div class="a-title">🗑️ ${a.binId} — ${a.location}</div><div class="a-meta">Fill: ${a.fillLevel}% · Type: ${a.type} · ${a.assignedTruck?'🚛 '+a.assignedTruck:'⏳ No truck yet'}</div><div class="a-meta">${new Date(a.timestamp).toLocaleString()}</div></div><span class="tag" style="flex-shrink:0;background:${a.status==='pending'?'var(--red-bg)':'var(--green-bg)'};color:${a.status==='pending'?'var(--red)':'var(--green)'};border:1px solid ${a.status==='pending'?'var(--red-border)':'var(--green-border)'}">${a.status}</span></div>`).join('');}
+  else{el.innerHTML='<div class="empty">All bins healthy! No alerts 🌿</div>';}
+  if(trucks){
+    document.getElementById('truckList').innerHTML=trucks.map(t=>`<div style="display:flex;align-items:center;gap:11px;padding:10px 12px;background:var(--bg);border-radius:var(--radius-sm);border:2px solid var(--border);margin-bottom:8px"><span style="font-size:1.4rem">🚛</span><div><div style="font-weight:700;font-size:.88rem">${t.id} — ${t.driver}</div><div style="font-size:.72rem;color:var(--muted)">Route: ${t.currentRoute.join(', ')||'On standby'}</div></div><span style="margin-left:auto;padding:4px 11px;border-radius:20px;font-size:.72rem;font-weight:700;background:${t.status==='idle'?'var(--green-bg)':'var(--orange-bg)'};color:${t.status==='idle'?'var(--green)':'var(--orange)'};border:2px solid ${t.status==='idle'?'var(--green-border)':'var(--orange-border)'}">${t.status==='idle'?'✅ Available':'🚛 On Route'}</span></div>`).join('');
+  }
+}
+
+// ── CHATBOT ──
+function toggleChat(){
+  chatOpen=!chatOpen;
+  const box=document.getElementById('chatBox'),notif=document.getElementById('chatNotif');
+  if(chatOpen){
+    box.classList.add('open');notif.style.display='none';
+    if(!chatHistory.length) appendBotMsg("🙏 Namaskara! I'm **EcoBot**, your waste helper for Bengaluru!\n\nI can help you:\n• Find the right bin for any waste\n• Understand medical waste safety\n• Earn more reward points\n• Request emergency collection\n\nJust type or tap a quick question below! 🌱");
+    setTimeout(()=>document.getElementById('chatInput').focus(),200);
+  }else{box.classList.remove('open');}
+}
+function appendBotMsg(text){
+  const msgs=document.getElementById('chatMessages'),div=document.createElement('div');
+  div.className='chat-bubble bot';div.innerHTML=text.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
+  msgs.appendChild(div);msgs.scrollTop=msgs.scrollHeight;chatHistory.push({role:'bot',text});
+}
+function appendUserMsg(text){
+  const msgs=document.getElementById('chatMessages'),div=document.createElement('div');
+  div.className='chat-bubble user';div.textContent=text;msgs.appendChild(div);msgs.scrollTop=msgs.scrollHeight;
+}
+function showTyping(){const msgs=document.getElementById('chatMessages'),div=document.createElement('div');div.className='chat-bubble bot typing';div.id='typingInd';div.textContent='💬 Typing…';msgs.appendChild(div);msgs.scrollTop=msgs.scrollHeight;}
+function hideTyping(){const el=document.getElementById('typingInd');if(el)el.remove();}
+async function sendChat(){
+  const input=document.getElementById('chatInput'),msg=input.value.trim();if(!msg)return;
+  input.value='';document.getElementById('chatSuggs').style.display='none';
+  appendUserMsg(msg);showTyping();
+  const r=await apiPost('/chat',{message:msg});hideTyping();
+  appendBotMsg(r?.reply||'⚠️ Could not connect. Please try again.');
+}
+function sendSugg(el){document.getElementById('chatInput').value=el.textContent;sendChat();}
+
+// ── INIT & AUTO-REFRESH ──
+refreshDashboard();
+setInterval(refreshDashboard,5000);
+setInterval(()=>{
+  const p=document.querySelector('.page.active')?.id;
+  if(p==='page-bins') loadBins();
+  if(p==='page-alerts') loadAlerts();
+  if(p==='page-societies') {loadSocieties();}
+  if(p==='page-competition') loadCompetition();
+},6000);
+loadBinSelect();loadCitizenChips();
+setTimeout(()=>{document.getElementById('chatNotif').style.display='flex';},4000);
+</script>
+</body>
+</html>
